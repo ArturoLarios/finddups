@@ -1,7 +1,8 @@
 # finddups
 
-The finddups program is a C program designed to scan a set of files and directories, identify duplicate files, and organize them into groups.
-Usage
+finddups is a C program designed to scan a set of files and directories, identify duplicate files, and organize them into groups.
+
+## Usage
 
 The program accepts command-line arguments to specify the files and directories to scan. If no arguments are provided, it defaults to the current directory. You can run the program as follows:
 

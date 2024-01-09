@@ -11,6 +11,7 @@ typedef struct list
 {
     struct list* next;
     char *file;
+    int fileIsDup;
 } list;
 
 typedef struct dictionary 
@@ -34,6 +35,7 @@ void list_prepend(list **head, char *data)
     assert(newNode);
     newNode->next = *head;
     newNode->file = data;
+    newNode->fileIsDup = 0;
     *head = newNode;
 }
 
@@ -64,8 +66,17 @@ void insert_entry(dictionary **head, int key, char *file)
     }
 }
 
-// Frees all list nodes and srtings
+// Frees all list nodes
 void delete_list(list *head) {
+    list *nextNode = NULL;
+    for (list *currentNode = head; currentNode != NULL; currentNode = nextNode) {
+        nextNode = currentNode->next;
+        free(currentNode);
+    }
+}
+
+// Frees all list nodes and srtings
+void delete_list_full(list *head) {
     list *nextNode = NULL;
     for (list *currentNode = head; currentNode != NULL; currentNode = nextNode) {
         nextNode = currentNode->next;
@@ -80,28 +91,28 @@ void delete_dictionary(dictionary *head)
     dictionary *nextEntry = NULL;
     for (dictionary *currentEntry = head; currentEntry != NULL; currentEntry = nextEntry) {
         nextEntry = currentEntry->next;
-        delete_list(currentEntry->files);
+        delete_list_full(currentEntry->files);
         free(currentEntry);
     }
 }
 
-// Compares two files to determine if they are identical (1) or differ (0)
+// Compares two files to determine if they are identical (1) or different (0)
 int compareFiles(char *fname1, char *fname2)
 {
     FILE *file1, *file2;
     int ch1, ch2;
 
-    if ((file1  = fopen(fname1, "r")) == NULL) {            // Open the first file
+    if ((file1  = fopen(fname1, "r")) == NULL) {
         fprintf(stderr, "failed to open %s\n", fname1);
         return -1;                                              // -1 indicates error opening first file
     }
-    if ((file2 = fopen(fname2, "r")) == NULL) {             // Open the second file
+    if ((file2 = fopen(fname2, "r")) == NULL) {
         fprintf(stderr, "failed to open %s\n", fname2);
         fclose(file1);
         return -2;                                              // -2 indicates error opening second file
     }
 
-    // While char read from file0 is the same as the char read from file 1
+    // While the char read from file0 is the same as the char read from file 1
     while ((ch1 = fgetc(file1)) == (ch2 = fgetc(file2)))
         if (ch1 == EOF) {   // If EOF was reached on both files
             fclose(file1);      
@@ -116,29 +127,42 @@ int compareFiles(char *fname1, char *fname2)
 
 void finddups(dictionary *head)
 {
-    for (dictionary *currentEntry = head; currentEntry != NULL; currentEntry = currentEntry->next) {
-        printf("%ld\n", currentEntry->key);
-        for (list *currentNode = currentEntry->files; currentNode != NULL; currentNode = currentNode->next) {
-            printf("%s\n", currentNode->file);
-        }
+    for (dictionary *currentEntry = head; currentEntry != NULL; currentEntry = currentEntry->next) {                    // For every file size dictionary entry
+        for (list *currentNode = currentEntry->files; currentNode != NULL; currentNode = currentNode->next) {               // For every file of that size
+            if (!(currentNode->fileIsDup)) {                                                                                    // If the file hasn't already been marked as a copy
+                list *dups = NULL;                                                                                                  // Make an empty list
+                list_prepend(&dups, currentNode->file);                                                                             // Add the file to the list
+                int numberOfDups = 1;                                                                                               // Start a counter for the number of duplicates
+                for (list *nextNode = currentNode->next; nextNode != NULL; nextNode = nextNode->next) {                             // Compare the file to the rest of the files in front of it that aren't already marked as duplicates
+                    int comparison = compareFiles(currentNode->file, nextNode->file);
+                    if (comparison == 1) {                                                                                              // If the two files are the same
+                        nextNode->fileIsDup = 1;                                                                                            // Mark the file as a copy
+                        list_prepend(&dups, nextNode->file);                                                                              // Add the file to the list
+                        numberOfDups++;                                                                                                     // Increment the "number of duplicates" counter
+                    }
+                    else if (comparison == -1) {                                                                                        // If the first file can't be opened
+                        break;                                                                                                              // Break out of the loop and move onto the next file as the [file being compared to all remaining files]
+                    }
+                    else if (comparison == -2) {                                                                                        // If the second file can't be opened
+                        nextNode->fileIsDup = 1;                                                                                            // Mark it as a copy so it will be ignored automatically in the future as the [file being compared to all remaining files]
+                    }
+                }
+                if (numberOfDups > 1) {
+                    int i = 1;
+                    for (list *currentDup = dups; currentDup != NULL; currentDup = currentDup->next) {                                  // Print the list of duplicates following the format in README.md
+                        printf("%d %d %s\n", numberOfDups, i++, currentDup->file);
+                    }
+                }
+                delete_list(dups);                                                                                                  // Free the memory allocated for the list of duplicate files
+            }
+        } 
     }
-
-    // For every file size dictionary entry
-        // For every file of that size
-            // Make an empty list
-                // Compare the file to the rest of the files in front of it that aren't already marked as copies
-                    // If the two files are the same mark them as copies
-                        // Put them in a new list
-                        // Incrememt the "number of files in group" counter
-                    // Print the list following the format in README.md
-                
-
 }
 
 // Prepend file path to list of files
 void processFile(dictionary **head, char *path, size_t len, struct stat sb)
 {
-    char *filePath = (char *) malloc(len + 1);      // Allocate character array that will contain file pathname + null terminating character
+    char *filePath = (char *) malloc(len + 1);      // Allocate character array that will contain file path name + null terminating character
     assert(filePath);                               // Assert that malloc() succeeded
     strcpy(filePath, path);                         // Copy path to pathName
     insert_entry(head, sb.st_size, filePath);      // Process the file
@@ -182,9 +206,10 @@ void processDir(dictionary **head, char *path, size_t len)
         }
 	}
 
-    closedir(dir);                                                          // Close the directory
+    closedir(dir);
 }
 
+// Process program arguments
 int main(int argc, char *argv[])
 {
     // Initialize empty dictionary to organize files by size
