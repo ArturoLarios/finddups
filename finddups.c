@@ -22,6 +22,13 @@ typedef struct dictionary
 } dictionary;
 
 
+// "Create" an empty list
+list* create_list(void)
+{
+    return NULL;
+}
+
+
 // "Create" an empty dictionary
 dictionary* create_dictionary(void)
 {
@@ -60,7 +67,7 @@ void insert_entry(dictionary **head, int key, char *file)
         assert(newEntry);
         newEntry->next = *head;
         newEntry->key = key;
-        newEntry->files = NULL;
+        newEntry->files = create_list();
         list_prepend(&(newEntry->files), file);
         *head = newEntry; // Set new entry as head
     }
@@ -125,12 +132,13 @@ int compareFiles(char *fname1, char *fname2)
     return 0;
 }
 
+// Find duplicate files and print them to stdout in groups
 void finddups(dictionary *head)
 {
     for (dictionary *currentEntry = head; currentEntry != NULL; currentEntry = currentEntry->next) {                    // For every file size dictionary entry
         for (list *currentNode = currentEntry->files; currentNode != NULL; currentNode = currentNode->next) {               // For every file of that size
             if (!(currentNode->fileIsDup)) {                                                                                    // If the file hasn't already been marked as a copy
-                list *dups = NULL;                                                                                                  // Make an empty list
+                list *dups = create_list();                                                                                         // Make an empty list
                 list_prepend(&dups, currentNode->file);                                                                             // Add the file to the list
                 int numberOfDups = 1;                                                                                               // Start a counter for the number of duplicates
                 for (list *nextNode = currentNode->next; nextNode != NULL; nextNode = nextNode->next) {                             // Compare the file to the rest of the files in front of it that aren't already marked as duplicates

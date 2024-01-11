@@ -7,17 +7,16 @@ SRC = finddups.c
 OBJ = $(SRC:.c=.o)
 
 # Targets
-.PHONY: default clean immaculate
+.PHONY: default clean
 
 default: $(BINS)
 
 clean:
 	rm -f core* *.o *~ $(BINS)
 
-immaculate: clean
-
 $(BINS): $(OBJ)
 	$(CC) $(LDFLAGS) $^ -o $@
+	rm -f $(OBJ)
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@
